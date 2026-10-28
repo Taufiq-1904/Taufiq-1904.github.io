@@ -1,0 +1,437 @@
+@import "tailwindcss";
+
+/*
+  Portfolio design tokens
+  Night sky and stone for surfaces, parchment for text, gold for light.
+*/
+@theme {
+  --color-void-950: #0b0507;
+  --color-void-900: #14080b;
+  --color-void-800: #1e0c11;
+  --color-void-700: #2b1118;
+  --color-void-600: #3a1820;
+
+  --color-parchment-100: #f3ead3;
+  --color-parchment-300: #d8cba8;
+  --color-parchment-500: #a39673;
+
+  --color-gold-300: #f6dc8e;
+  --color-gold-400: #e6bd5f;
+  --color-gold-500: #c99a3b;
+  --color-gold-700: #8a6420;
+
+  --color-crimson-500: #a3342f;
+  --color-moon: #d3dafc;
+
+  /* Ink and leather, for the book pages and covers */
+  --color-ink-900: #261c10;
+  --color-ink-700: #4d3c25;
+  --color-ink-gold: #6e4f16;
+  --color-leather-900: #1c110b;
+  --color-leather-700: #33200f;
+
+  --font-display: "Cinzel Variable", "Cinzel", Georgia, serif;
+  --font-serif: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif;
+  --font-hand: "Caveat Variable", "Caveat", "Segoe Script", cursive;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+
+  --animate-twinkle: twinkle 4.5s ease-in-out infinite;
+  --animate-flicker: flicker 3.6s ease-in-out infinite;
+  --animate-drift: drift 70s ease-in-out infinite alternate;
+  --animate-wing-left: wing-left 0.9s ease-in-out infinite;
+  --animate-wing-right: wing-right 0.9s ease-in-out infinite;
+  --animate-scroll-cue: scroll-cue 2.4s ease-in-out infinite;
+  --animate-dialog-in: dialog-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-dialog-out: dialog-out 0.24s ease-in forwards;
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 0.95; }
+    35% { opacity: 0.55; }
+    55% { opacity: 1; }
+    75% { opacity: 0.7; }
+  }
+  @keyframes drift {
+    from { transform: translateX(-6%); }
+    to { transform: translateX(6%); }
+  }
+  @keyframes wing-left {
+    0%, 100% { transform: rotate(16deg); }
+    50% { transform: rotate(-16deg); }
+  }
+  @keyframes wing-right {
+    0%, 100% { transform: rotate(-16deg); }
+    50% { transform: rotate(16deg); }
+  }
+  @keyframes dialog-in {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes dialog-out {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(10px) scale(0.985); }
+  }
+  @keyframes scroll-cue {
+    0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
+    40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
+    70% { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+    100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+  }
+}
+
+
+/* ---------- House themes ----------
+   Each house redefines the same tokens, so every utility (gold-*, void-*, parchment-*) follows.
+   The registered properties below let the browser fade between palettes. */
+@property --color-void-950 { syntax: "<color>"; inherits: true; initial-value: #0b0507; }
+@property --color-void-900 { syntax: "<color>"; inherits: true; initial-value: #14080b; }
+@property --color-void-800 { syntax: "<color>"; inherits: true; initial-value: #1e0c11; }
+@property --color-void-700 { syntax: "<color>"; inherits: true; initial-value: #2b1118; }
+@property --color-void-600 { syntax: "<color>"; inherits: true; initial-value: #3a1820; }
+@property --color-gold-300 { syntax: "<color>"; inherits: true; initial-value: #f6dc8e; }
+@property --color-gold-400 { syntax: "<color>"; inherits: true; initial-value: #e6bd5f; }
+@property --color-gold-500 { syntax: "<color>"; inherits: true; initial-value: #c99a3b; }
+@property --color-gold-700 { syntax: "<color>"; inherits: true; initial-value: #8a6420; }
+@property --color-parchment-100 { syntax: "<color>"; inherits: true; initial-value: #f3ead3; }
+@property --color-parchment-300 { syntax: "<color>"; inherits: true; initial-value: #d8cba8; }
+@property --color-parchment-500 { syntax: "<color>"; inherits: true; initial-value: #a39673; }
+@property --color-crimson-500 { syntax: "<color>"; inherits: true; initial-value: #a3342f; }
+
+@property --btn-from { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-to { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-hover-from { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-hover-to { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-fg { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-border { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-ring { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-disabled-bg { syntax: "<color>"; inherits: true; initial-value: #000; }
+@property --btn-disabled-fg { syntax: "<color>"; inherits: true; initial-value: #000; }
+
+html {
+  transition:
+    --color-void-950 0.6s ease, --color-void-900 0.6s ease, --color-void-800 0.6s ease,
+    --color-void-700 0.6s ease, --color-void-600 0.6s ease,
+    --color-gold-300 0.6s ease, --color-gold-400 0.6s ease, --color-gold-500 0.6s ease, --color-gold-700 0.6s ease,
+    --color-parchment-100 0.6s ease, --color-parchment-300 0.6s ease, --color-parchment-500 0.6s ease,
+    --color-crimson-500 0.6s ease,
+    --btn-from 0.6s ease, --btn-to 0.6s ease, --btn-hover-from 0.6s ease, --btn-hover-to 0.6s ease,
+    --btn-fg 0.6s ease, --btn-border 0.6s ease, --btn-ring 0.6s ease, --btn-disabled-bg 0.6s ease, --btn-disabled-fg 0.6s ease;
+}
+
+/* GRYFFINDOR (default): burgundy-black stone, crimson, antique gold */
+html, html[data-house="gryffindor"] {
+  --color-void-950: #0b0507; --color-void-900: #14080b; --color-void-800: #1e0c11;
+  --color-void-700: #2b1118; --color-void-600: #3a1820;
+  --color-gold-300: #f6dc8e; --color-gold-400: #e6bd5f; --color-gold-500: #c99a3b; --color-gold-700: #8a6420;
+  --color-parchment-100: #f3ead3; --color-parchment-300: #d8cba8; --color-parchment-500: #a39673;
+  --color-crimson-500: #a3342f;
+  --btn-from: #b23a34; --btn-to: #6e1f1b; --btn-hover-from: #c9463f; --btn-hover-to: #832622;
+  --btn-fg: #fbf3df; --btn-border: #e6bd5f; --btn-glow: 214 90 60; --btn-ring: #f6dc8e;
+  --btn-disabled-bg: #3a2022; --btn-disabled-fg: #b9a58a;
+  --accent-rgb: 230 189 95;
+  --spark-core: 255 233 160; --spark-mid: 240 192 90;
+  --sky-top: #0b0507; --sky-mid: #1a0a10; --sky-low: #2e1117; --sky-floor: #4a1a1c;
+  --sky-glow-a: 230 150 90; --sky-glow-b: 170 50 45;
+  --house-fog: 190 70 50;
+}
+/* SLYTHERIN: dark stone, emerald light, silver */
+html[data-house="slytherin"] {
+  --color-void-950: #030807; --color-void-900: #07100d; --color-void-800: #0b1a15;
+  --color-void-700: #122720; --color-void-600: #1a362d;
+  --color-gold-300: #e3ece8; --color-gold-400: #bccdc5; --color-gold-500: #8fa69c; --color-gold-700: #5b7268;
+  --color-parchment-100: #e9f0ec; --color-parchment-300: #c4d2cb; --color-parchment-500: #8ea397;
+  --color-crimson-500: #1f7a55;
+  --btn-from: #1d7a57; --btn-to: #0d3f2d; --btn-hover-from: #26956b; --btn-hover-to: #12523b;
+  --btn-fg: #f2f7f4; --btn-border: #bccdc5; --btn-glow: 70 190 140; --btn-ring: #e3ece8;
+  --btn-disabled-bg: #12251e; --btn-disabled-fg: #8ea397;
+  --accent-rgb: 140 205 175;
+  --spark-core: 215 255 235; --spark-mid: 80 200 150;
+  --sky-top: #030807; --sky-mid: #07140f; --sky-low: #0c2a20; --sky-floor: #12402f;
+  --sky-glow-a: 70 190 140; --sky-glow-b: 20 120 85;
+  --house-fog: 40 170 120;
+}
+/* RAVENCLAW: midnight blue, bronze, moonlight */
+html[data-house="ravenclaw"] {
+  --color-void-950: #04060f; --color-void-900: #080c1c; --color-void-800: #0e1530;
+  --color-void-700: #16204a; --color-void-600: #1f2d63;
+  --color-gold-300: #ecd2a8; --color-gold-400: #cfa56e; --color-gold-500: #b0834a; --color-gold-700: #7a5630;
+  --color-parchment-100: #ebeffa; --color-parchment-300: #c7cfe8; --color-parchment-500: #939dc2;
+  --color-crimson-500: #2b4aa8;
+  --btn-from: #3556bd; --btn-to: #1b2f77; --btn-hover-from: #4668d2; --btn-hover-to: #243d93;
+  --btn-fg: #f2f5ff; --btn-border: #cfa56e; --btn-glow: 110 140 240; --btn-ring: #ecd2a8;
+  --btn-disabled-bg: #141b38; --btn-disabled-fg: #939dc2;
+  --accent-rgb: 207 165 110;
+  --spark-core: 225 236 255; --spark-mid: 140 170 240;
+  --sky-top: #04060f; --sky-mid: #0a1030; --sky-low: #14224f; --sky-floor: #1f3270;
+  --sky-glow-a: 150 180 255; --sky-glow-b: 60 90 190;
+  --house-fog: 90 120 220;
+}
+/* HUFFLEPUFF: charcoal and earth, golden yellow, amber light */
+html[data-house="hufflepuff"] {
+  --color-void-950: #0c0904; --color-void-900: #161008; --color-void-800: #21170b;
+  --color-void-700: #2f2110; --color-void-600: #3f2d16;
+  --color-gold-300: #ffe58a; --color-gold-400: #f5c93a; --color-gold-500: #d9a621; --color-gold-700: #8f6a0e;
+  --color-parchment-100: #f8eed6; --color-parchment-300: #ddd0b0; --color-parchment-500: #aa9e7a;
+  --color-crimson-500: #b8741c;
+  --btn-from: #f5c93a; --btn-to: #d9a621; --btn-hover-from: #ffd95a; --btn-hover-to: #e8b52e;
+  --btn-fg: #2b1c06; --btn-border: #8f6a0e; --btn-glow: 245 190 60; --btn-ring: #ffe58a;
+  --btn-disabled-bg: #2f2110; --btn-disabled-fg: #aa9e7a;
+  --accent-rgb: 245 201 58;
+  --spark-core: 255 242 195; --spark-mid: 245 190 70;
+  --sky-top: #0c0904; --sky-mid: #1a1208; --sky-low: #2e200d; --sky-floor: #4a3412;
+  --sky-glow-a: 255 200 100; --sky-glow-b: 200 130 40;
+  --house-fog: 230 160 50;
+}
+
+/* A faint, house-specific atmosphere over the whole page. Never intercepts input. */
+.house-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 53;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse 50% 35% at 12% 105%, rgb(var(--house-fog) / 0.22), transparent 70%),
+    radial-gradient(ellipse 45% 30% at 92% 108%, rgb(var(--house-fog) / 0.16), transparent 70%);
+  animation: house-breathe 9s ease-in-out infinite alternate;
+}
+@keyframes house-breathe {
+  from { opacity: 0.4; transform: translateY(0); }
+  to { opacity: 0.7; transform: translateY(-1.5%); }
+}
+html[data-house="ravenclaw"] .house-atmosphere {
+  background:
+    radial-gradient(1.5px 1.5px at 20% 30%, rgb(220 232 255 / 0.9), transparent 60%),
+    radial-gradient(1.5px 1.5px at 70% 18%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1px 1px at 45% 60%, rgb(220 232 255 / 0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 85% 72%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1px 1px at 10% 80%, rgb(220 232 255 / 0.7), transparent 60%),
+    radial-gradient(ellipse 60% 30% at 50% -5%, rgb(var(--house-fog) / 0.2), transparent 70%);
+  animation-name: house-twinkle;
+  animation-duration: 5s;
+}
+@keyframes house-twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 0.8; }
+}
+html[data-house="slytherin"] .house-atmosphere {
+  background:
+    radial-gradient(ellipse 70% 25% at 30% 100%, rgb(var(--house-fog) / 0.3), transparent 70%),
+    radial-gradient(ellipse 60% 22% at 80% 96%, rgb(var(--house-fog) / 0.22), transparent 70%);
+}
+html[data-house="hufflepuff"] .house-atmosphere {
+  background:
+    radial-gradient(ellipse 40% 30% at 8% 6%, rgb(var(--house-fog) / 0.22), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 94% 8%, rgb(var(--house-fog) / 0.18), transparent 70%),
+    radial-gradient(ellipse 50% 24% at 50% 108%, rgb(var(--house-fog) / 0.2), transparent 70%);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    background: var(--color-void-950);
+  }
+
+  /* Transparent on purpose: the fixed house backdrop (z-index -1) paints behind the page, and an opaque
+     body background would hide it. The html element keeps the solid colour as the fallback. */
+  body {
+    background: transparent;
+    color: var(--color-parchment-300);
+    font-family: var(--font-serif);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* While a modal dialog is open the page behind it must not scroll. */
+  html:has(dialog[open]) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+
+  ::selection {
+    background: rgb(var(--accent-rgb) / 0.35);
+    color: var(--color-parchment-100);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-400);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+@utility bg-night-sky {
+  background-color: var(--color-void-950);
+  background-image:
+    radial-gradient(ellipse 60% 45% at 74% 22%, rgb(var(--sky-glow-a) / 0.2), transparent 70%),
+    radial-gradient(ellipse 80% 40% at 50% 88%, rgb(var(--sky-glow-b) / 0.35), transparent 70%),
+    linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-mid) 42%, var(--sky-low) 78%, var(--sky-floor) 100%);
+}
+
+@utility text-gold-gradient {
+  background-image: linear-gradient(
+    180deg,
+    var(--color-gold-300) 0%,
+    var(--color-gold-400) 48%,
+    var(--color-gold-700) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Rows of book spines, very faint, for the sections below the hero */
+@utility bg-library {
+  background-color: var(--color-void-900);
+  background-image:
+    linear-gradient(to bottom, var(--color-void-950), transparent 16%, transparent 84%, var(--color-void-950)),
+    repeating-linear-gradient(
+      90deg,
+      rgb(var(--accent-rgb) / 0.035) 0 2px,
+      transparent 2px 26px,
+      rgb(255 255 255 / 0.015) 26px 28px,
+      transparent 28px 61px
+    );
+}
+
+/* Aged paper for book pages and letters */
+@utility bg-parchment-page {
+  background-color: #efe4c6;
+  background-image:
+    radial-gradient(ellipse at 18% 0%, rgb(255 250 232 / 0.65), transparent 60%),
+    radial-gradient(ellipse at 100% 100%, rgb(150 110 50 / 0.22), transparent 55%),
+    linear-gradient(to bottom, #f3ead3, #e6d8b3);
+}
+
+/* Worn leather for the covers around the pages */
+@utility bg-leather {
+  background-image:
+    linear-gradient(145deg, var(--color-leather-700), var(--color-leather-900));
+}
+
+/* Shadow where two pages meet; hidden on narrow screens where pages stack */
+@utility book-gutter {
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    rgb(60 38 12 / 0.22) 46%,
+    rgb(60 38 12 / 0.34) 50%,
+    rgb(60 38 12 / 0.22) 54%,
+    transparent
+  );
+}
+
+/* Film grain over the whole page */
+@utility grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* The project dialog grows out of the card that opened it and sinks back when closed. */
+@keyframes dialog-from-card {
+  from { opacity: 0; transform: translate(var(--from-x, 0), calc(var(--from-y, 0px) + 12px)) scale(0.7); }
+  to { opacity: 1; transform: none; }
+}
+dialog.dialog-card[open] {
+  animation: dialog-from-card 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+dialog[data-closing] {
+  animation: dialog-out 0.24s ease-in forwards !important;
+}
+
+/* ---------- Dialog backdrop, fading in and out with the dialog ---------- */
+dialog::backdrop {
+  animation: backdrop-in 0.3s ease-out;
+}
+dialog[data-closing]::backdrop {
+  animation: backdrop-out 0.24s ease-in forwards;
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes backdrop-out {
+  to { opacity: 0; }
+}
+
+/* ---------- Spells ---------- */
+
+/* Lumos: a warm pool of light that follows the cursor. Added on top, never dims the page. */
+.lumos-light {
+  position: fixed;
+  inset: 0;
+  z-index: 54;
+  display: none;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    circle 280px at var(--lx, 50%) var(--ly, 50%),
+    rgb(255 226 150 / 0.15),
+    rgb(255 200 110 / 0.05) 55%,
+    transparent 78%
+  );
+}
+html[data-lumos="on"] .lumos-light {
+  display: block;
+}
+
+/* Wingardium Leviosa: cards hover for a few seconds. Uses the individual translate/rotate
+   properties so it never fights with Framer Motion's transform. */
+@keyframes levitate {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  50% { translate: 0 -14px; rotate: var(--lev-r, -1.2deg); }
+}
+html[data-levitate="on"] [data-levitate-item] {
+  animation: levitate 3.2s ease-in-out infinite;
+}
+html[data-levitate="on"] [data-levitate-item]:nth-child(2n) {
+  --lev-r: 1.4deg;
+  animation-delay: -1.1s;
+}
+html[data-levitate="on"] [data-levitate-item]:nth-child(3n) {
+  animation-delay: -2.1s;
+}
+
+/* ---------- Marauder's Map ---------- */
+@keyframes mm-ink {
+  from { opacity: 0; filter: blur(6px); letter-spacing: 0.05em; }
+  to { opacity: 1; filter: blur(0); letter-spacing: 0; }
+}
+.mm-ink {
+  animation: mm-ink 1.4s ease-out both;
+}
+@keyframes mm-print {
+  from { opacity: 0; }
+  to { opacity: 0.75; }
+}
+.mm-print {
+  opacity: 0;
+  animation: mm-print 0.5s ease-out forwards;
+}
+
+/* ---------- Book page flip ---------- */
+.leaf-shade-front {
+  background: linear-gradient(to right, rgb(60 38 12 / 0.28), transparent 40%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .lumos-light { transition: none; }
+}

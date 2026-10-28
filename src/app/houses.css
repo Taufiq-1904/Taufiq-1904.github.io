@@ -1,0 +1,559 @@
+/*
+  HOUSE WORLDS
+  Four environments, not four palettes. globals.css owns the colour tokens; this file owns everything
+  that makes a house feel like a different room: the photographic backdrop and its cross-fade, ambient
+  light, ornaments, card and button treatments, shape language, typography and the spell that plays when
+  the visitor changes house.
+
+  How a house is chosen: <html data-house="..."> (palette and ornaments, instant) and <html data-bg="...">
+  (which photograph is showing; it follows data-house once the new photo has decoded, see houseStore.ts).
+  Both are set by a boot script before first paint, so nothing flashes and nothing depends on hydration.
+
+  Performance rules used throughout: animate only transform and opacity, keep blend modes inside the
+  contained backdrop, and let `display: none` switch off every animation that belongs to an inactive house.
+*/
+
+/* ---------- Extra per-house tokens ---------- */
+/* --orn-a / --orn-b: the two ornament tints (RGB triplets). --dim: how much the photo is darkened.
+   --scrim-a: opacity of the dark veil over the photo behind page sections (readability).
+   --card-radius / --btn-radius: shape language. --ember: Gryffindor's fire. */
+html, html[data-house="gryffindor"] {
+  --orn-a: 216 177 92; --orn-b: 116 15 36; --ember: 232 121 66;
+  --dim: 0.22; --scrim-a: 0.74;
+  --card-radius: 2px; --btn-radius: 0px;
+  --h-tracking: 0.01em;
+  --h-shadow: 0 2px 22px rgb(232 121 66 / 0.28);
+  --color-leather-700: #3a1017; --color-leather-900: #1d0709;
+  --rim: linear-gradient(115deg, rgb(232 121 66 / 0.34), transparent 45%);
+}
+html[data-house="slytherin"] {
+  --orn-a: 195 208 203; --orn-b: 23 107 77; --ember: 80 200 150;
+  --dim: 0.26; --scrim-a: 0.74;
+  --card-radius: 0px; --btn-radius: 0px;
+  --h-tracking: 0.05em;
+  --h-shadow: 0 0 20px rgb(23 107 77 / 0.55), 0 1px 0 rgb(0 0 0 / 0.6);
+  --color-leather-700: #0f2b23; --color-leather-900: #06140f;
+  --rim: linear-gradient(180deg, rgb(142 217 178 / 0.3), transparent 50%);
+}
+html[data-house="ravenclaw"] {
+  --orn-a: 182 138 85; --orn-b: 102 139 206; --ember: 150 180 255;
+  --dim: 0.2; --scrim-a: 0.72;
+  --card-radius: 0px; --btn-radius: 0px;
+  --h-tracking: 0.025em;
+  --h-shadow: 0 0 24px rgb(102 139 206 / 0.45);
+  --color-leather-700: #172447; --color-leather-900: #0a1126;
+  --rim: linear-gradient(180deg, rgb(220 231 247 / 0.3), transparent 48%);
+}
+html[data-house="hufflepuff"] {
+  --orn-a: 213 169 40; --orn-b: 101 116 74; --ember: 255 214 120;
+  --dim: 0.4; --scrim-a: 0.8;
+  --card-radius: 10px; --btn-radius: 999px;
+  --h-tracking: 0;
+  --h-shadow: 0 2px 18px rgb(255 229 161 / 0.22);
+  --color-leather-700: #44301a; --color-leather-900: #23170b;
+  --rim: linear-gradient(250deg, rgb(255 229 161 / 0.38), transparent 50%);
+}
+
+/* Typography: the display face and heading treatment change with the room.
+   Gryffindor and Slytherin keep Cinzel (engraved); Ravenclaw and Hufflepuff take Cormorant (scholar's
+   italic, warm serif). Only headings get the shadow, so body text is never glowing. */
+html[data-house="ravenclaw"] { --font-display: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif; }
+html[data-house="hufflepuff"] { --font-display: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif; }
+main :is(h2, h3), .house-heading { letter-spacing: var(--h-tracking); text-shadow: var(--h-shadow); }
+/* Dark ink on parchment (book pages, the letter) must never glow */
+main .bg-parchment-page :is(h2, h3, h4), main .bg-parchment-page .house-heading { text-shadow: none; }
+html[data-house="ravenclaw"] main :is(h2, h3) { font-style: italic; }
+html[data-house="hufflepuff"] main :is(h2, h3) { font-weight: 700; }
+
+/* ---------- Switching ornaments on and off ----------
+   Any element with data-h="a b" is shown only in those houses. `display: none` also stops its animations,
+   and restarts them (with a soft fade-in) the moment the house is chosen. */
+html:not([data-house]) [data-h]:not([data-h~="gryffindor"]),
+html[data-house="gryffindor"] [data-h]:not([data-h~="gryffindor"]),
+html[data-house="slytherin"] [data-h]:not([data-h~="slytherin"]),
+html[data-house="ravenclaw"] [data-h]:not([data-h~="ravenclaw"]),
+html[data-house="hufflepuff"] [data-h]:not([data-h~="hufflepuff"]) {
+  display: none !important;
+}
+[data-h] { animation: house-enter 0.9s ease both; }
+/* No `to` frame on purpose: the fade ends at the element's own opacity (e.g. 0.2 for the caustics) instead of forcing 1. */
+@keyframes house-enter { from { opacity: 0; } }
+
+/* ======================================================================
+   BACKDROP: one fixed stage behind the whole page
+   ====================================================================== */
+.house-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--color-void-950);
+  contain: layout paint style;
+}
+
+/* Photo layers. Only the layer matching html[data-bg] (and, during the fade, data-bg-prev) is given an
+   image, so the browser fetches exactly one house photograph at a time. */
+.house-photo {
+  position: absolute;
+  inset: -2%;
+  z-index: 0;
+  opacity: 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: var(--pos, 50% 50%);
+  --bg-active: var(--bg);
+  /* A hair of blur hides the softness of small source photographs when they are stretched to a screen. */
+  filter: blur(1.4px) saturate(1.1) contrast(1.04);
+  transition: opacity 0.9s ease;
+}
+@media (max-width: 767px) {
+  .house-photo { --bg-active: var(--bg-sm); inset: -1%; }
+}
+html[data-bg="gryffindor"] .house-photo[data-for="gryffindor"],
+html[data-bg="slytherin"] .house-photo[data-for="slytherin"],
+html[data-bg="ravenclaw"] .house-photo[data-for="ravenclaw"],
+html[data-bg="hufflepuff"] .house-photo[data-for="hufflepuff"] {
+  background-image: var(--bg-active);
+  opacity: 1;
+  z-index: 2;
+  animation: photo-drift 56s ease-in-out infinite alternate;
+}
+html[data-bg-prev="gryffindor"] .house-photo[data-for="gryffindor"],
+html[data-bg-prev="slytherin"] .house-photo[data-for="slytherin"],
+html[data-bg-prev="ravenclaw"] .house-photo[data-for="ravenclaw"],
+html[data-bg-prev="hufflepuff"] .house-photo[data-for="hufflepuff"] {
+  background-image: var(--bg-active);
+  opacity: 1;
+  z-index: 1;
+  transition: none;
+}
+@keyframes photo-drift {
+  from { transform: scale(1.02) translate3d(-0.6%, 0, 0); }
+  to { transform: scale(1.07) translate3d(0.8%, -0.7%, 0); }
+}
+
+/* Colour grade + readability dim. Lighter at the very top (the hero shows the room), settling as the
+   visitor scrolls into the content. Browsers without scroll-driven animations get the settled grade. */
+.house-grade {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background:
+    linear-gradient(rgb(0 0 0 / var(--dim)), rgb(0 0 0 / var(--dim))),
+    radial-gradient(ellipse 85% 75% at 50% 42%, transparent 0%, color-mix(in srgb, var(--sky-top) 60%, transparent) 100%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--sky-top) 64%, transparent), color-mix(in srgb, var(--sky-mid) 46%, transparent) 46%, color-mix(in srgb, var(--sky-floor) 70%, transparent));
+}
+@supports (animation-timeline: scroll()) {
+  .house-grade {
+    animation: grade-settle linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 85vh;
+  }
+}
+@keyframes grade-settle { from { opacity: 0.6; } to { opacity: 1; } }
+
+.house-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: radial-gradient(ellipse at 50% 45%, transparent 42%, rgb(0 0 0 / 0.55) 100%);
+}
+
+/* Ambient light of each room (inside the contained backdrop, so blending never touches the page) */
+.amb { position: absolute; inset: 0; z-index: 4; mix-blend-mode: screen; overflow: hidden; }
+
+/* Gryffindor: two pools of firelight breathing out of the bottom corners */
+.amb-fire::before, .amb-fire::after {
+  content: "";
+  position: absolute;
+  width: 74vmax;
+  height: 74vmax;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+.amb-fire::before {
+  left: -30vmax; bottom: -44vmax;
+  background: radial-gradient(circle, rgb(var(--ember) / 0.36), rgb(var(--ember) / 0.1) 42%, transparent 68%);
+  animation: fire-pulse 4.4s ease-in-out infinite;
+}
+.amb-fire::after {
+  right: -34vmax; bottom: -50vmax;
+  background: radial-gradient(circle, rgb(216 177 92 / 0.3), rgb(216 177 92 / 0.08) 42%, transparent 68%);
+  animation: fire-pulse 5.6s ease-in-out -2s infinite;
+}
+@keyframes fire-pulse {
+  0%, 100% { opacity: 0.62; transform: scale(1); }
+  38% { opacity: 1; transform: scale(1.05); }
+  64% { opacity: 0.74; transform: scale(1.02); }
+}
+
+/* Slytherin: light that has travelled through the lake. Two caustic sheets drift against each other. */
+.amb-caustic { opacity: 0.15; }
+.amb-caustic i {
+  position: absolute;
+  inset: -30%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='520' height='520'><filter id='c' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.011 0.017' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.56  0 0 0 0 1  0 0 0 0 0.82  0 0 0 1 0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0 0 0 0 0 0 0 0.55 0.55 0 0 0 0 0 0 0 0 0'/></feComponentTransfer></filter><rect width='100%25' height='100%25' filter='url(%23c)'/></svg>");
+  background-size: 520px 520px;
+  will-change: transform;
+}
+.amb-caustic i:nth-child(1) { animation: caustic-a 34s ease-in-out infinite alternate; }
+.amb-caustic i:nth-child(2) { background-size: 760px 760px; opacity: 0.5; animation: caustic-b 46s ease-in-out infinite alternate; }
+@keyframes caustic-a { from { transform: translate3d(-7%, -4%, 0) rotate(0.001deg); } to { transform: translate3d(7%, 5%, 0) rotate(0.001deg); } }
+@keyframes caustic-b { from { transform: translate3d(6%, 5%, 0); } to { transform: translate3d(-6%, -4%, 0); } }
+.amb-caustic::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 36% 60% at 24% -8%, rgb(142 217 178 / 0.3), transparent 70%);
+  animation: ray-breathe 9s ease-in-out infinite alternate;
+}
+@keyframes ray-breathe { from { opacity: 0.45; } to { opacity: 1; } }
+
+/* Ravenclaw: a field of stars over the upper room, and a very faint astronomical diagram turning slowly */
+.amb-stars { opacity: 0.9; }
+.amb-stars::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 35% 0;
+  background:
+    radial-gradient(1.6px 1.6px at 12% 22%, rgb(220 232 255 / 0.95), transparent 60%),
+    radial-gradient(1.2px 1.2px at 27% 11%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1.8px 1.8px at 41% 31%, rgb(255 244 220 / 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 56% 14%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1.6px 1.6px at 69% 27%, rgb(220 232 255 / 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 83% 9%, rgb(255 244 220 / 0.85), transparent 60%),
+    radial-gradient(1.4px 1.4px at 92% 33%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1.2px 1.2px at 6% 41%, rgb(220 232 255 / 0.7), transparent 60%),
+    radial-gradient(1.4px 1.4px at 35% 46%, rgb(220 232 255 / 0.7), transparent 60%),
+    radial-gradient(1.2px 1.2px at 75% 44%, rgb(220 232 255 / 0.75), transparent 60%);
+  animation: star-twinkle 6s ease-in-out infinite alternate;
+}
+.amb-stars::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1.4px 1.4px at 20% 36%, rgb(220 232 255 / 0.85), transparent 60%),
+    radial-gradient(1.2px 1.2px at 47% 8%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1.6px 1.6px at 62% 40%, rgb(255 244 220 / 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 88% 22%, rgb(220 232 255 / 0.8), transparent 60%),
+    radial-gradient(1.2px 1.2px at 3% 15%, rgb(220 232 255 / 0.75), transparent 60%);
+  animation: star-twinkle 8.5s ease-in-out -3s infinite alternate;
+}
+@keyframes star-twinkle { from { opacity: 0.3; } to { opacity: 1; } }
+.amb-astro {
+  position: absolute;
+  right: -14vmin;
+  top: -14vmin;
+  width: 76vmin;
+  height: 76vmin;
+  opacity: 0.2;
+  color: rgb(var(--orn-b));
+  animation: slow-spin 260s linear infinite;
+}
+@keyframes slow-spin { to { transform: rotate(360deg); } }
+
+/* Hufflepuff: sun through the greenhouse glass, in three soft shafts */
+.amb-shafts i {
+  position: absolute;
+  top: -12%;
+  height: 135%;
+  background: linear-gradient(to bottom, rgb(255 229 161 / 0.3), rgb(255 229 161 / 0.07) 60%, transparent 90%);
+  transform: skewX(-18deg);
+  transform-origin: top;
+  animation: shaft-breathe 11s ease-in-out infinite alternate;
+}
+.amb-shafts i:nth-child(1) { left: 50%; width: 13vw; }
+.amb-shafts i:nth-child(2) { left: 63%; width: 7vw; animation-delay: -4s; }
+.amb-shafts i:nth-child(3) { left: 74%; width: 10vw; animation-delay: -7s; }
+@keyframes shaft-breathe { from { opacity: 0.45; } to { opacity: 1; } }
+.amb-shafts::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 50% 45% at 82% 0%, rgb(255 224 150 / 0.28), transparent 70%);
+}
+
+/* ======================================================================
+   PAGE SECTIONS: translucent veil over the fixed photograph
+   ====================================================================== */
+.section-veil {
+  background-color: color-mix(in srgb, var(--color-void-900) calc(var(--scrim-a) * 100%), transparent);
+}
+
+/* The faint, house-specific mist across the whole page (existing .house-atmosphere, per-house recipes in globals.css) */
+
+/* Per-section decorations (see SectionBackdrop). Quiet by design: they sit in the margins. */
+.sec-orn { position: absolute; pointer-events: none; color: rgb(var(--orn-a)); opacity: 0.2; }
+.sec-orn-b { color: rgb(var(--orn-b)); }
+.sec-fog-g { background: radial-gradient(ellipse at 50% 100%, rgb(var(--ember) / 0.14), transparent 70%); }
+
+/* ======================================================================
+   HERO
+   ====================================================================== */
+.hero-light { position: absolute; inset: 0; pointer-events: none; }
+html[data-house="gryffindor"] .hero-light {
+  background:
+    radial-gradient(ellipse 55% 40% at 12% 100%, rgb(232 121 66 / 0.28), transparent 70%),
+    radial-gradient(ellipse 45% 36% at 90% 100%, rgb(216 177 92 / 0.2), transparent 70%);
+}
+html[data-house="slytherin"] .hero-light {
+  background:
+    radial-gradient(ellipse 50% 42% at 50% 0%, rgb(142 217 178 / 0.2), transparent 72%),
+    radial-gradient(ellipse 60% 30% at 50% 100%, rgb(23 107 77 / 0.35), transparent 72%);
+}
+html[data-house="ravenclaw"] .hero-light {
+  background:
+    radial-gradient(ellipse 40% 36% at 50% 0%, rgb(220 231 247 / 0.2), transparent 72%),
+    radial-gradient(ellipse 50% 30% at 50% 100%, rgb(102 139 206 / 0.25), transparent 72%);
+}
+html[data-house="hufflepuff"] .hero-light {
+  background:
+    radial-gradient(ellipse 50% 42% at 85% 0%, rgb(255 224 150 / 0.3), transparent 72%),
+    radial-gradient(ellipse 60% 30% at 40% 100%, rgb(101 116 74 / 0.3), transparent 72%);
+}
+/* Darkens the middle just enough that the title never competes with the room behind it */
+.hero-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 62% 56% at 50% 46%, rgb(0 0 0 / 0.5), transparent 78%);
+}
+
+/* Hufflepuff's room is the brightest, so its title gets a deeper, warmer pool of shade */
+html[data-house="hufflepuff"] .hero-veil { background: radial-gradient(ellipse 66% 60% at 50% 46%, rgb(18 11 3 / 0.66), transparent 80%); }
+
+/* Banners (Gryffindor), lamps and orbs (Slytherin), books and feathers (Ravenclaw), lanterns and ivy (Hufflepuff) */
+.sway { transform-origin: 50% 0; animation: sway 7s ease-in-out infinite alternate; }
+.sway-slow { transform-origin: 50% 0; animation: sway 11s ease-in-out -3s infinite alternate; }
+@keyframes sway { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
+.bob { animation: bob 7s ease-in-out infinite alternate; }
+.bob-b { animation: bob 9s ease-in-out -3s infinite alternate; }
+.bob-c { animation: bob 11s ease-in-out -6s infinite alternate; }
+@keyframes bob { from { transform: translate3d(0, 0, 0) rotate(-3deg); } to { transform: translate3d(0, -16px, 0) rotate(3deg); } }
+.glow-pulse { animation: glow-pulse 4.6s ease-in-out infinite alternate; }
+@keyframes glow-pulse { from { opacity: 0.55; } to { opacity: 1; } }
+.flame-flick { animation: flame-flick 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes flame-flick {
+  0%, 100% { transform: scale(1, 1); opacity: 0.95; }
+  30% { transform: scale(0.94, 1.08); opacity: 0.8; }
+  60% { transform: scale(1.04, 0.96); opacity: 1; }
+}
+
+/* Wand sparks (Gryffindor): a short golden streak arcing across now and then */
+.wand-spark {
+  position: absolute;
+  width: 90px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgb(255 216 150 / 0.95));
+  box-shadow: 0 0 12px 2px rgb(232 121 66 / 0.6);
+  opacity: 0;
+  animation: wand-spark 9s ease-out infinite;
+}
+@keyframes wand-spark {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(var(--r, -28deg)) scaleX(0.4); }
+  4% { opacity: 1; }
+  14% { opacity: 0; transform: translate3d(var(--dx, 220px), var(--dy, -150px), 0) rotate(var(--r, -28deg)) scaleX(1); }
+  100% { opacity: 0; transform: translate3d(var(--dx, 220px), var(--dy, -150px), 0) rotate(var(--r, -28deg)); }
+}
+
+/* Falling leaves (Hufflepuff). Two nested animations: the fall, and the tumble. */
+.leaf { position: absolute; top: -8%; width: 22px; animation: leaf-fall var(--dur, 18s) linear var(--delay, 0s) infinite; will-change: transform; }
+.leaf > svg { display: block; animation: leaf-tumble 4.6s ease-in-out infinite alternate; }
+@keyframes leaf-fall {
+  from { transform: translate3d(0, -6vh, 0); }
+  to { transform: translate3d(var(--drift, 60px), 112vh, 0); }
+}
+@keyframes leaf-tumble { from { transform: rotate(-38deg) scaleX(1); } to { transform: rotate(48deg) scaleX(0.55); } }
+
+/* Constellation (Ravenclaw): the lines draw themselves each time the house is chosen */
+.const-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: const-draw 3.4s ease-out 0.3s forwards; }
+@keyframes const-draw { to { stroke-dashoffset: 0; } }
+.const-star { animation: star-twinkle 3.6s ease-in-out infinite alternate; }
+
+/* A raven crossing the upper room, slowly */
+.raven-fly { position: absolute; top: 14%; left: -10%; width: 64px; opacity: 0.55; animation: raven-fly 56s linear infinite; }
+@keyframes raven-fly {
+  from { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(60vw, -4vh, 0); }
+  to { transform: translate3d(124vw, 2vh, 0); }
+}
+
+/* Slytherin lamps: green glass that swells and fades like a slow breath */
+.lamp-glow { animation: lamp-glow 6s ease-in-out infinite alternate; }
+@keyframes lamp-glow { from { opacity: 0.55; transform: scale(0.94); } to { opacity: 1; transform: scale(1.06); } }
+
+/* ======================================================================
+   PORTRAIT
+   ====================================================================== */
+.portrait-frame { border-radius: var(--card-radius); }
+.portrait-stage { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: calc(var(--card-radius) * 0.6); }
+.portrait-layer { position: absolute; inset: 0; }
+.portrait-layer.is-in { animation: portrait-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.portrait-layer.is-out { animation: portrait-out 0.55s ease-in both; pointer-events: none; }
+@keyframes portrait-in { from { opacity: 0; transform: scale(1.045); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes portrait-out { from { opacity: 1; } to { opacity: 0; } }
+/* House rim light over the portrait. Kept soft and at the edge so the face stays untouched. */
+.portrait-rim { position: absolute; inset: 0; pointer-events: none; background: var(--rim); mix-blend-mode: soft-light; }
+.portrait-rim-glow { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 34px rgb(var(--orn-b) / 0.38), inset 0 0 0 1px rgb(var(--orn-a) / 0.25); }
+
+/* Portrait frame particles, one kind per house */
+.pp { position: absolute; pointer-events: none; }
+.pp-ember { width: 5px; height: 5px; border-radius: 50%; background: rgb(255 200 130); box-shadow: 0 0 10px 3px rgb(232 121 66 / 0.8); animation: pp-rise 4.6s ease-out var(--d, 0s) infinite; }
+@keyframes pp-rise { 0% { opacity: 0; transform: translate3d(0, 0, 0) scale(1); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate3d(var(--x, 8px), -64px, 0) scale(0.3); } }
+.pp-silver { width: 4px; height: 4px; border-radius: 50%; background: rgb(225 238 232); box-shadow: 0 0 9px 2px rgb(142 217 178 / 0.65); animation: pp-drift 7s ease-in-out var(--d, 0s) infinite alternate; }
+@keyframes pp-drift { from { opacity: 0.2; transform: translate3d(-8px, 6px, 0); } to { opacity: 1; transform: translate3d(10px, -8px, 0); } }
+.pp-star { width: 12px; height: 12px; color: rgb(236 242 255); filter: drop-shadow(0 0 5px rgb(150 180 255 / 0.9)); animation: star-twinkle 3.2s ease-in-out var(--d, 0s) infinite alternate; }
+.pp-pollen { width: 5px; height: 5px; border-radius: 50%; background: rgb(255 236 170); box-shadow: 0 0 9px 3px rgb(245 201 58 / 0.55); animation: pp-float 9s ease-in-out var(--d, 0s) infinite alternate; }
+@keyframes pp-float { from { opacity: 0.35; transform: translate3d(-6px, -4px, 0); } to { opacity: 1; transform: translate3d(8px, 12px, 0); } }
+
+/* ======================================================================
+   CARDS: shape and ornament follow the room
+   ====================================================================== */
+.house-card { border-radius: var(--card-radius); }
+.house-card::before, .house-card::after { content: ""; position: absolute; pointer-events: none; transition: opacity 0.4s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Gryffindor: gold corner brackets, and an ember glow on the lower edge when lit */
+html[data-house="gryffindor"] .house-card::before {
+  inset: 6px;
+  --c: rgb(216 177 92 / 0.75);
+  background:
+    linear-gradient(var(--c), var(--c)) 0 0 / 14px 1px no-repeat, linear-gradient(var(--c), var(--c)) 0 0 / 1px 14px no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% 0 / 14px 1px no-repeat, linear-gradient(var(--c), var(--c)) 100% 0 / 1px 14px no-repeat,
+    linear-gradient(var(--c), var(--c)) 0 100% / 14px 1px no-repeat, linear-gradient(var(--c), var(--c)) 0 100% / 1px 14px no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% 100% / 14px 1px no-repeat, linear-gradient(var(--c), var(--c)) 100% 100% / 1px 14px no-repeat;
+  opacity: 0.55;
+}
+html[data-house="gryffindor"] .house-card::after {
+  inset: auto 0 0 0; height: 46%;
+  background: radial-gradient(ellipse 80% 100% at 50% 100%, rgb(232 121 66 / 0.26), transparent 72%);
+  opacity: 0;
+}
+html[data-house="gryffindor"] .house-card:is(:hover, :focus-visible, [data-active])::before { opacity: 1; }
+html[data-house="gryffindor"] .house-card:is(:hover, :focus-visible, [data-active])::after { opacity: 1; }
+
+/* Slytherin: silver lines draw across the top and bottom edges when the card is lit */
+html[data-house="slytherin"] .house-card::before,
+html[data-house="slytherin"] .house-card::after {
+  left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(214 228 222 / 0.9), transparent);
+  transform: scaleX(0);
+  opacity: 0.9;
+}
+html[data-house="slytherin"] .house-card::before { top: 0; transform-origin: left; }
+html[data-house="slytherin"] .house-card::after { bottom: 0; transform-origin: right; }
+html[data-house="slytherin"] .house-card:is(:hover, :focus-visible, [data-active])::before,
+html[data-house="slytherin"] .house-card:is(:hover, :focus-visible, [data-active])::after { transform: scaleX(1); }
+html[data-house="slytherin"] .house-card:is(:hover, :focus-visible, [data-active]) { box-shadow: 0 0 34px rgb(23 107 77 / 0.28); }
+
+/* Ravenclaw: a small star chart in the corner, brightening and turning when the card is lit */
+html[data-house="ravenclaw"] .house-card::before {
+  top: 8px; right: 8px; width: 46px; height: 46px; border-radius: 50%;
+  background:
+    radial-gradient(circle, rgb(220 231 247 / 0.95) 0 1.5px, transparent 2.5px) 50% 50% / 100% 100% no-repeat,
+    radial-gradient(circle, rgb(220 231 247 / 0.8) 0 1.2px, transparent 2px) 18% 24% / 100% 100% no-repeat,
+    radial-gradient(circle, rgb(220 231 247 / 0.8) 0 1.2px, transparent 2px) 80% 70% / 100% 100% no-repeat,
+    repeating-radial-gradient(circle, transparent 0 9px, rgb(182 138 85 / 0.5) 9px 10px);
+  opacity: 0.5;
+}
+html[data-house="ravenclaw"] .house-card:is(:hover, :focus-visible, [data-active])::before { opacity: 1; transform: rotate(40deg); }
+html[data-house="ravenclaw"] .house-card:is(:hover, :focus-visible, [data-active]) { box-shadow: 0 0 36px rgb(102 139 206 / 0.22); }
+
+/* Hufflepuff: soft rounded corners, a warm glow gathering at the foot, a sprig of leaves */
+html[data-house="hufflepuff"] .house-card { box-shadow: inset 0 0 0 1px rgb(213 169 40 / 0.18), inset 0 -34px 40px -34px rgb(213 169 40 / 0.24); }
+html[data-house="hufflepuff"] .house-card::before {
+  right: -6px; bottom: -6px; width: 70px; height: 70px;
+  background:
+    radial-gradient(ellipse 18px 7px at 30% 62%, rgb(101 116 74 / 0.7), transparent 72%),
+    radial-gradient(ellipse 16px 6px at 56% 38%, rgb(101 116 74 / 0.6), transparent 72%),
+    radial-gradient(ellipse 14px 6px at 72% 72%, rgb(101 116 74 / 0.55), transparent 72%);
+  transform: rotate(-12deg);
+  opacity: 0.8;
+}
+html[data-house="hufflepuff"] .house-card:is(:hover, :focus-visible, [data-active])::before { transform: rotate(0deg) scale(1.15); opacity: 1; }
+
+/* Buttons */
+.house-btn { position: relative; overflow: hidden; isolation: isolate; border-radius: var(--btn-radius); }
+.house-btn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 0.4s ease, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
+.house-btn:is(:hover, :focus-visible)::after { opacity: 1; }
+html[data-house="gryffindor"] .house-btn::after { background: radial-gradient(120% 150% at 50% 135%, rgb(232 121 66 / 0.6), transparent 62%); }
+html[data-house="slytherin"] .house-btn::after { background: linear-gradient(105deg, transparent 36%, rgb(255 255 255 / 0.38) 50%, transparent 64%); transform: translateX(-110%); }
+html[data-house="slytherin"] .house-btn:is(:hover, :focus-visible)::after { transform: translateX(110%); }
+html[data-house="ravenclaw"] .house-btn::after {
+  background:
+    radial-gradient(1.5px 1.5px at 18% 30%, rgb(255 255 255 / 0.95), transparent 60%),
+    radial-gradient(1.5px 1.5px at 52% 70%, rgb(255 255 255 / 0.9), transparent 60%),
+    radial-gradient(1.5px 1.5px at 84% 28%, rgb(255 255 255 / 0.95), transparent 60%),
+    linear-gradient(to top, rgb(102 139 206 / 0.3), transparent);
+}
+html[data-house="hufflepuff"] .house-btn::after { background: radial-gradient(130% 160% at 50% 140%, rgb(255 236 170 / 0.65), transparent 62%); }
+
+/* Navbar: a hairline of ornament along its lower edge */
+.house-nav::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--orn-a) / 0.55), transparent);
+}
+html[data-house="slytherin"] .house-nav::after { background: linear-gradient(90deg, transparent, rgb(var(--orn-a) / 0.7) 30%, rgb(var(--orn-b) / 0.9) 50%, rgb(var(--orn-a) / 0.7) 70%, transparent); }
+html[data-house="hufflepuff"] .house-nav::after { height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, rgb(var(--orn-a) / 0.5), rgb(var(--orn-b) / 0.5), rgb(var(--orn-a) / 0.5), transparent); }
+
+/* ======================================================================
+   HOUSE SELECTOR
+   ====================================================================== */
+.house-option { position: relative; overflow: hidden; border-radius: var(--card-radius); transition: border-color 0.3s, background-color 0.3s, transform 0.3s; }
+.house-option[aria-pressed="true"] { box-shadow: 0 0 0 1px var(--color-gold-400), 0 0 26px rgb(var(--accent-rgb) / 0.25); }
+.house-option:is(:hover, :focus-visible) { transform: translateY(-2px); }
+.house-option .thumb { transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s; filter: saturate(0.85) brightness(0.8); }
+.house-option:is(:hover, :focus-visible) .thumb, .house-option[aria-pressed="true"] .thumb { transform: scale(1.06); filter: none; }
+
+/* ======================================================================
+   THE SPELL: plays once when a house is chosen
+   ====================================================================== */
+.house-wash { position: fixed; inset: 0; z-index: 85; pointer-events: none; opacity: 0; }
+html[data-wash] .house-wash { animation-duration: 1s; animation-timing-function: ease-out; animation-fill-mode: both; }
+html[data-wash="gryffindor"] .house-wash {
+  background: radial-gradient(circle at var(--wx, 92%) var(--wy, 4%), rgb(255 226 150 / 0.75), rgb(232 121 66 / 0.45) 22%, transparent 55%);
+  animation-name: wash-burst;
+}
+html[data-wash="slytherin"] .house-wash {
+  background: radial-gradient(circle at var(--wx, 92%) var(--wy, 4%), transparent 0 34%, rgb(142 217 178 / 0.5) 38%, rgb(23 107 77 / 0.25) 46%, transparent 56%);
+  animation-name: wash-ripple;
+}
+html[data-wash="ravenclaw"] .house-wash {
+  background:
+    radial-gradient(1.5px 1.5px at 22% 28%, #fff, transparent 60%), radial-gradient(2px 2px at 64% 18%, #fff, transparent 60%),
+    radial-gradient(1.5px 1.5px at 80% 62%, #fff, transparent 60%), radial-gradient(1.5px 1.5px at 38% 74%, #fff, transparent 60%),
+    linear-gradient(180deg, rgb(102 139 206 / 0.45), rgb(16 28 58 / 0.55));
+  animation-name: wash-celestial;
+}
+html[data-wash="hufflepuff"] .house-wash {
+  background: radial-gradient(ellipse at 50% 40%, rgb(255 236 170 / 0.55), rgb(245 201 58 / 0.25) 45%, transparent 75%);
+  animation-name: wash-glow;
+}
+@keyframes wash-burst { 0% { opacity: 0; transform: scale(0.2); transform-origin: var(--wx, 92%) var(--wy, 4%); } 22% { opacity: 1; } 100% { opacity: 0; transform: scale(2.4); transform-origin: var(--wx, 92%) var(--wy, 4%); } }
+@keyframes wash-ripple { 0% { opacity: 0; transform: scale(0.15); transform-origin: var(--wx, 92%) var(--wy, 4%); } 20% { opacity: 1; } 100% { opacity: 0; transform: scale(2.6); transform-origin: var(--wx, 92%) var(--wy, 4%); } }
+@keyframes wash-celestial { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes wash-glow { 0% { opacity: 0; } 35% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ======================================================================
+   MOTION PREFERENCES AND TOUCH
+   ====================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .house-photo { animation: none !important; transition: none !important; }
+  .house-grade { animation: none !important; }
+  .leaf, .wand-spark, .raven-fly, .pp { display: none !important; }
+  .house-wash { display: none !important; }
+  .const-line { stroke-dashoffset: 0; }
+}
+/* Phones: fewer moving parts, no photo drift (the biggest continuous repaint area) */
+@media (max-width: 767px) {
+  .house-photo { animation: none !important; }
+  .amb-caustic i:nth-child(2) { display: none; }
+  .leaf:nth-child(n + 5) { display: none; }
+  .amb-astro { opacity: 0.12; }
+}

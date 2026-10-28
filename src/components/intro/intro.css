@@ -1,0 +1,260 @@
+/* Styles and keyframes for the wizarding-gate intro. Kept local so nothing else is affected. */
+
+/* Dark cover shown from first paint until React takes over (see INTRO_BOOT_SCRIPT). */
+.ig-cover {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 89;
+  background: #05040a;
+}
+
+html[data-intro="pending"] .ig-cover {
+  display: block;
+  /* Failsafe: if hydration never arrives, the page must not stay hidden. */
+  animation: ig-coverGiveUp 0s linear 6s forwards;
+}
+
+@keyframes ig-coverGiveUp {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* ---------- Fog ---------- */
+.ig-fog {
+  position: absolute;
+  left: 0;
+  width: 200%;
+  pointer-events: none;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
+  animation: ig-fogDrift var(--dur, 70s) linear infinite;
+}
+
+.ig-fogFar {
+  bottom: 20%;
+  height: 32%;
+  opacity: 0.6;
+  --dur: 95s;
+  background-image:
+    radial-gradient(ellipse 28% 55% at 22% 60%, rgb(170 160 220 / 0.22), transparent 70%),
+    radial-gradient(ellipse 24% 45% at 68% 45%, rgb(150 140 210 / 0.18), transparent 70%);
+}
+
+.ig-fogNear {
+  bottom: -4%;
+  height: 44%;
+  opacity: 0.85;
+  --dur: 60s;
+  animation-direction: reverse;
+  background-image:
+    radial-gradient(ellipse 30% 60% at 30% 70%, rgb(200 190 235 / 0.26), transparent 72%),
+    radial-gradient(ellipse 22% 50% at 80% 55%, rgb(210 200 240 / 0.2), transparent 70%);
+}
+
+@keyframes ig-fogDrift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------- Candlelight ---------- */
+.ig-flicker {
+  animation: ig-flick 3.2s ease-in-out infinite;
+}
+
+@keyframes ig-flick {
+  0%, 100% { opacity: 0.9; }
+  20% { opacity: 0.6; }
+  40% { opacity: 1; }
+  65% { opacity: 0.72; }
+  85% { opacity: 0.95; }
+}
+
+.ig-flame {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ig-flame 1.9s ease-in-out infinite;
+}
+
+@keyframes ig-flame {
+  0%, 100% { transform: scale(1, 1) rotate(0deg); }
+  30% { transform: scale(0.92, 1.1) rotate(2deg); }
+  60% { transform: scale(1.05, 0.94) rotate(-2deg); }
+}
+
+.ig-window {
+  animation: ig-flick 4.4s ease-in-out infinite;
+}
+
+/* ---------- Runes ---------- */
+.ig-rune {
+  opacity: 0.35;
+  animation: ig-runePulse 4.2s ease-in-out infinite;
+}
+
+@keyframes ig-runePulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* When the gate opens every rune flares and stays lit. */
+.ig-root[data-phase="opening"] .ig-rune {
+  animation: ig-runeSurge 0.9s ease-out forwards;
+}
+
+@keyframes ig-runeSurge {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+.ig-floatRune {
+  position: absolute;
+  opacity: 0;
+  animation: ig-runeFloat var(--dur, 12s) ease-in-out var(--delay, 0s) infinite;
+}
+
+@keyframes ig-runeFloat {
+  0% { opacity: 0; transform: translateY(24px) rotate(-6deg); }
+  25% { opacity: 0.75; }
+  75% { opacity: 0.5; }
+  100% { opacity: 0; transform: translateY(-90px) rotate(6deg); }
+}
+
+/* ---------- Entrance of the copy ---------- */
+.ig-titleWord {
+  display: inline-block;
+  animation: ig-titleIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes ig-titleIn {
+  from { opacity: 0; transform: translateY(18px); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+.ig-fadeUp {
+  animation: ig-fadeUp 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes ig-fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.ig-gateIn {
+  animation: ig-gateIn 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ig-gateIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ig-enter {
+  animation: ig-enterGlow 3.2s ease-in-out infinite;
+}
+
+@keyframes ig-enterGlow {
+  0%, 100% { box-shadow: 0 0 26px rgb(230 189 95 / 0.25); }
+  50% { box-shadow: 0 0 56px rgb(230 189 95 / 0.55); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ig-fog,
+  .ig-flicker,
+  .ig-flame,
+  .ig-window,
+  .ig-rune,
+  .ig-floatRune,
+  .ig-enter,
+  .ig-titleWord,
+  .ig-fadeUp,
+  .ig-gateIn {
+    animation: none !important;
+  }
+  .ig-rune { opacity: 0.8; }
+  .ig-floatRune { opacity: 0.45; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Alohomora: dim, wand spark, incantation, lock opens, magic escapes   */
+/* Timeline after the click: 0-0.5 dim | 0.3-1.5 wand | 1-2.9 words     */
+/* 1.7-2.5 lock opens | 2.35 sparks | 2.6 doors | 3.0 camera | ~6 end   */
+/* ------------------------------------------------------------------ */
+.ig-hint {
+  animation: ig-hintPulse 2.6s ease-in-out infinite;
+  text-shadow: 0 0 18px rgb(230 189 95 / 0.55);
+}
+@keyframes ig-hintPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.ig-root[data-phase="idle"] { cursor: pointer; }
+
+.ig-dim {
+  position: absolute; inset: 0; z-index: 12; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 60%, transparent 8%, rgb(3 2 8 / 0.78) 62%);
+}
+.ig-root[data-phase="opening"] .ig-dim { animation: ig-dimIn 3.3s ease-in-out both; }
+@keyframes ig-dimIn {
+  0% { opacity: 0; } 15% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; }
+}
+
+.ig-wand { opacity: 0; transform: translate(452px, 610px); }
+.ig-root[data-phase="opening"] .ig-wand { animation: ig-wandTravel 1.35s cubic-bezier(0.3, 0.1, 0.2, 1) 0.3s both; }
+@keyframes ig-wandTravel {
+  0% { opacity: 0; transform: translate(452px, 610px) rotate(8deg); }
+  15% { opacity: 1; }
+  80% { opacity: 1; transform: translate(300px, 458px) rotate(-4deg); }
+  100% { opacity: 0; transform: translate(296px, 452px) rotate(0deg); }
+}
+
+.ig-spell {
+  position: absolute; left: 0; right: 0; z-index: 25; margin: 0; pointer-events: none; text-align: center;
+  font-family: var(--font-display); font-weight: 700; letter-spacing: 0.22em;
+  font-size: clamp(0.9rem, 2.5vw, 1.75rem); white-space: nowrap; color: #fff1c2;
+  text-shadow: 0 0 18px rgb(255 210 120 / 0.95), 0 0 46px rgb(230 150 60 / 0.65);
+}
+.ig-spell span { display: inline-block; opacity: 0; }
+.ig-root[data-phase="opening"] .ig-spell span { animation: ig-letter 0.7s cubic-bezier(0.22, 1, 0.36, 1) var(--ld, 1s) both, ig-letterOut 0.6s ease-in 3.15s forwards; }
+@keyframes ig-letter {
+  from { opacity: 0; transform: translateY(10px) scale(1.25); filter: blur(7px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes ig-letterOut { to { opacity: 0; filter: blur(5px); } }
+
+.ig-keyhole-glow, .ig-lock-halo { opacity: 0; }
+.ig-root[data-phase="opening"] .ig-keyhole-glow { animation: ig-keyGlow 1.5s ease-in-out 1.7s both; }
+.ig-root[data-phase="opening"] .ig-lock-halo { animation: ig-halo 2.2s ease-in-out 1.6s both; }
+@keyframes ig-keyGlow { 0% { opacity: 0; } 35% { opacity: 1; } 100% { opacity: 0.9; } }
+@keyframes ig-halo { 0% { opacity: 0; transform: scale(0.6); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+.ig-lock-halo { transform-box: fill-box; transform-origin: center; }
+
+.ig-root[data-phase="opening"] .ig-shackle { animation: ig-unlatch 0.85s cubic-bezier(0.3, 1.4, 0.5, 1) 1.95s both; }
+@keyframes ig-unlatch {
+  0% { transform: translateY(0) rotate(0); }
+  45% { transform: translateY(-11px) rotate(0); }
+  100% { transform: translateY(-11px) rotate(-38deg); }
+}
+.ig-root[data-phase="opening"] .ig-lock-body { animation: ig-lockShake 0.4s ease-in-out 1.75s 1, ig-lockAway 0.5s ease-in 2.7s forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes ig-lockShake { 0%, 100% { transform: none; } 25% { transform: translateX(-1.5px) rotate(-1deg); } 75% { transform: translateX(1.5px) rotate(1deg); } }
+@keyframes ig-lockAway { to { opacity: 0; transform: translateY(14px) scale(0.92); } }
+
+.ig-lock-spark { opacity: 0; }
+.ig-root[data-phase="opening"] .ig-lock-spark { animation: ig-sparkOut 1s ease-out both; }
+@keyframes ig-sparkOut {
+  0% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ig-hint { animation: none; }
+  .ig-dim, .ig-wand, .ig-spell span, .ig-lock-spark { animation: none !important; }
+}
