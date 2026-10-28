@@ -34,7 +34,7 @@ export function getSiteUrl(): string {
   if (explicit) return explicit.replace(/\/+$/, "");
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (vercel) return `https://${vercel}`;
-  return "http://localhost:3000";
+  return "https://taufiq-1904.github.io";
 }
 
 // Labels are looked up in the dictionary (`nav.<id>`), so this list only decides order and anchors.
